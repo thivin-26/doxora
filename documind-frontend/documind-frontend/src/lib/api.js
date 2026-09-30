@@ -75,6 +75,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  generatePptx: (content, title = "Presentation") =>
+    request("/generate-pptx", {
+      method: "POST",
+      body: JSON.stringify({ content, title }),
+    }),
   downloadUrl: (filename) => `${BASE}/download/${filename}`,
   trackVisit: (payload) =>
     request("/track-visit", {

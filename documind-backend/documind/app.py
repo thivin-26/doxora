@@ -29,10 +29,14 @@ from utils.document_generator import (
     generate_txt,
     generate_json,
     generate_csv,
+    generate_pptx,
 )
 from utils.auth import require_auth, get_current_user_id
 from utils import supabase_store
 from utils import visitor_store
+
+# Global session chat history for general queries (when no document is selected)
+GENERAL_CHAT_HISTORY = {}
 
 # Initialize persistent SQLite visitor tracking database
 visitor_store.init_db()
@@ -480,34 +484,85 @@ def chat():
     if not question:
         return jsonify({"error": "Question is required."}), 400
 
-    doc = get_document_or_404(doc_id, user_id)
-    if not doc:
-        return jsonify({"error": "Document not found."}), 404
+    doc = None
+    if doc_id and doc_id != "general":
+        doc = get_document_or_404(doc_id, user_id)
+
+    doc_text = doc["text"] if doc else ""
+    history = doc["chat_history"] if doc else GENERAL_CHAT_HISTORY.setdefault(user_id, [])
 
     try:
-        answer = chat_about_document(doc["text"], question, history=doc["chat_history"])
+        answer = chat_about_document(doc_text, question, history=history)
     except Exception as e:
         from utils.ai_service import _smart_local_answer
-        answer = _smart_local_answer(doc["text"], question)
+        answer = _smart_local_answer(doc_text, question)
 
-    doc["chat_history"].append({"role": "user", "content": question})
-    doc["chat_history"].append({"role": "assistant", "content": answer})
-    # Keep history bounded so the context doesn't grow unbounded across a long session.
-    doc["chat_history"] = doc["chat_history"][-20:]
-    supabase_store.save_chat_message(doc_id, user_id, "user", question)
-    supabase_store.save_chat_message(doc_id, user_id, "assistant", answer)
+    history.append({"role": "user", "content": question})
+    history.append({"role": "assistant", "content": answer})
+    # Keep history bounded so context doesn't grow unbounded across a long session.
+    if len(history) > 20:
+        history[:] = history[-20:]
 
-    return jsonify({"doc_id": doc_id, "answer": answer})
+    if doc:
+        supabase_store.save_chat_message(doc_id, user_id, "user", question)
+        supabase_store.save_chat_message(doc_id, user_id, "assistant", answer)
+
+    # Check if this query or answer is for a PowerPoint / presentation
+    is_ppt_request = any(k in question.lower() for k in ["ppt", "powerpoint", "slides", "presentation"]) or ("slide 1" in answer.lower())
+    download_url = None
+    if is_ppt_request:
+        gen_id = uuid.uuid4().hex[:10]
+        out_name = f"{gen_id}_presentation.pptx"
+        out_path = os.path.join(GENERATED_DIR, out_name)
+        try:
+            generate_pptx(answer, out_path, title=question[:50])
+            download_url = f"/api/download/{out_name}"
+        except Exception as ppt_err:
+            print("Notice: PPTX auto-generation error:", ppt_err)
+
+    return jsonify({
+        "doc_id": doc_id or "general",
+        "answer": answer,
+        "download_url": download_url,
+        "format": "pptx" if download_url else None
+    })
 
 
 @app.route("/api/chat/<doc_id>/history", methods=["GET"])
 @require_auth
 def chat_history(doc_id):
     user_id = get_current_user_id()
+    if not doc_id or doc_id == "general":
+        return jsonify({"doc_id": "general", "history": GENERAL_CHAT_HISTORY.get(user_id, [])})
     doc = get_document_or_404(doc_id, user_id)
     if not doc:
-        return jsonify({"error": "Document not found."}), 404
+        return jsonify({"doc_id": doc_id, "history": GENERAL_CHAT_HISTORY.get(user_id, [])})
     return jsonify({"doc_id": doc_id, "history": doc["chat_history"]})
+
+
+@app.route("/api/generate-pptx", methods=["POST"])
+@require_auth
+def generate_pptx_route():
+    """Generates an executive PowerPoint .pptx file directly from content."""
+    data = request.get_json(force=True, silent=True) or {}
+    content = (data.get("content") or "").strip()
+    title = (data.get("title") or "Doxora AI Presentation").strip()
+
+    if not content:
+        return jsonify({"error": "Content is required to generate presentation."}), 400
+
+    gen_id = uuid.uuid4().hex[:10]
+    out_name = f"{gen_id}_presentation.pptx"
+    out_path = os.path.join(GENERATED_DIR, out_name)
+    try:
+        generate_pptx(content, out_path, title=title)
+        return jsonify({
+            "download_url": f"/api/download/{out_name}",
+            "filename": out_name,
+            "format": "pptx"
+        })
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate PPTX: {e}"}), 500
 
 
 # --- API: extract --------------------------------------------------------
@@ -555,7 +610,7 @@ def generate():
     data = request.get_json(force=True, silent=True) or {}
     prompt = (data.get("prompt") or "").strip()
     doc_type = data.get("doc_type", "general")
-    output_format = data.get("output_format", "docx")  # 'docx' | 'pdf' | 'txt'
+    output_format = data.get("output_format", "docx")  # 'docx' | 'pdf' | 'txt' | 'pptx'
     source_doc_id = data.get("source_doc_id")
 
     if not prompt:
@@ -574,18 +629,30 @@ def generate():
         content = f"# {doc_type.capitalize()} Brief\n\n## Overview\n{prompt}\n\n## Details\nGenerated by Doxora Studio based on project context."
 
     gen_id = uuid.uuid4().hex[:10]
-    out_name = f"{gen_id}_generated.{output_format}"
-    out_path = os.path.join(GENERATED_DIR, out_name)
-
-    if output_format == "pdf":
+    if output_format in ["pptx", "ppt"]:
+        output_format = "pptx"
+        out_name = f"{gen_id}_generated.pptx"
+        out_path = os.path.join(GENERATED_DIR, out_name)
+        generate_pptx(content, out_path, title=prompt[:60])
+    elif output_format == "pdf":
+        out_name = f"{gen_id}_generated.pdf"
+        out_path = os.path.join(GENERATED_DIR, out_name)
         generate_pdf(content, out_path)
     elif output_format == "txt":
+        out_name = f"{gen_id}_generated.txt"
+        out_path = os.path.join(GENERATED_DIR, out_name)
         generate_txt(content, out_path)
     else:
         output_format = "docx"
         out_name = f"{gen_id}_generated.docx"
         out_path = os.path.join(GENERATED_DIR, out_name)
         generate_docx(content, out_path)
+
+    return jsonify({
+        "content_preview": content[:500],
+        "download_url": f"/api/download/{out_name}",
+        "format": output_format,
+    })
 
     return jsonify({
         "content_preview": content[:500],
