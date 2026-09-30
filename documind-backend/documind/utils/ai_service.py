@@ -36,7 +36,7 @@ def _api_key() -> str:
             "No OPENROUTER_API_KEY found. Set it in your .env file "
             "(see .env.example) before using AI features."
         )
-    return key
+    return "".join(key.split()).strip()
 
 
 def _truncate(text: str, limit: int = MAX_DOC_CHARS) -> str:
