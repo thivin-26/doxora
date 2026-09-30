@@ -1380,9 +1380,9 @@ export default function ChatPanel({ document }) {
         </div>
       )}
 
-      {/* Persistent Docked Read Aloud Control Bar (Always visible even when scrolled down) */}
+      {/* Persistent FIXED Read Aloud Control Bar (Always visible even when scrolled down - fixed to viewport bottom) */}
       {speakingIndex !== null && (
-        <div className="border-t border-amber-400/30 bg-gradient-to-r from-ink-950 via-amber-950/40 to-ink-950 px-4 py-2.5 flex items-center justify-between gap-3 backdrop-blur-2xl shadow-[0_-8px_25px_rgba(0,0,0,0.6)] z-20 animate-fade-in-up">
+        <div className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-amber-400/30 bg-gradient-to-r from-ink-950 via-amber-950/40 to-ink-950 px-4 py-2.5 flex items-center justify-between gap-3 backdrop-blur-2xl shadow-[0_-8px_25px_rgba(0,0,0,0.6)] animate-fade-in-up">
           <div className="flex items-center gap-3 min-w-0">
             <div className="relative flex items-center justify-center h-8 w-8 rounded-xl bg-amber-400/20 border border-amber-400/50 text-amber-300 shrink-0">
               <Volume2 size={16} className={isPaused ? "" : "animate-bounce"} />
