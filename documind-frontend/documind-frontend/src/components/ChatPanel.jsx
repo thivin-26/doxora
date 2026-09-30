@@ -225,6 +225,7 @@ export default function ChatPanel({ document }) {
     setSpeechError("");
     voiceTranscriptRef.current = "";
     setInput("");
+    stopSpeech();
 
     // Step 1: Pre-flight check with getUserMedia to prompt browser permissions if not yet granted
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -620,10 +621,20 @@ export default function ChatPanel({ document }) {
     }
   };
 
+  const scrollToSpeakingMessage = () => {
+    if (speakingIndex !== null) {
+      const el = document.getElementById(`chat-msg-${speakingIndex}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  };
+
   // Main Command / Question Execution
   const executeCommand = async (commandText) => {
     if (!commandText || !commandText.trim() || !document || sending) return;
     const question = commandText.trim();
+    stopSpeech();
     setInput("");
     voiceTranscriptRef.current = "";
 
@@ -1176,6 +1187,7 @@ export default function ChatPanel({ document }) {
 
             return (
               <div
+                id={`chat-msg-${i}`}
                 key={i}
                 className={`flex flex-col animate-fade-in-up ${m.role === "user" ? "items-end" : "items-start"}`}
               >
@@ -1368,6 +1380,78 @@ export default function ChatPanel({ document }) {
         </div>
       )}
 
+      {/* Persistent Docked Read Aloud Control Bar (Always visible even when scrolled down) */}
+      {speakingIndex !== null && (
+        <div className="border-t border-amber-400/30 bg-gradient-to-r from-ink-950 via-amber-950/40 to-ink-950 px-4 py-2.5 flex items-center justify-between gap-3 backdrop-blur-2xl shadow-[0_-8px_25px_rgba(0,0,0,0.6)] z-20 animate-fade-in-up">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="relative flex items-center justify-center h-8 w-8 rounded-xl bg-amber-400/20 border border-amber-400/50 text-amber-300 shrink-0">
+              <Volume2 size={16} className={isPaused ? "" : "animate-bounce"} />
+              {!isPaused && (
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-400" />
+                </span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-amber-300">
+                  {isPaused ? "Reading Aloud (Paused)" : "Reading Aloud Active"}
+                </span>
+                {!isPaused && (
+                  <div className="flex items-center gap-0.5 h-3">
+                    <span className="w-0.5 h-full bg-amber-400 animate-pulse" />
+                    <span className="w-0.5 h-2 bg-amber-400 animate-pulse delay-75" />
+                    <span className="w-0.5 h-3 bg-amber-400 animate-pulse delay-150" />
+                    <span className="w-0.5 h-1 bg-amber-400 animate-pulse delay-100" />
+                  </div>
+                )}
+              </div>
+              <p
+                onClick={scrollToSpeakingMessage}
+                className="text-[11px] text-ink-300 truncate max-w-[200px] sm:max-w-md md:max-w-lg hover:text-amber-200 cursor-pointer underline-offset-2 hover:underline transition-colors"
+                title="Click to jump to this message in chat"
+              >
+                {messages[speakingIndex]?.content
+                  ? messages[speakingIndex].content.slice(0, 100) + "…"
+                  : "Listening to response"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={pauseResumeSpeech}
+              className="px-2.5 py-1.5 rounded-xl border border-amber-400/30 hover:border-amber-400/60 bg-white/5 hover:bg-white/10 text-xs text-amber-200 flex items-center gap-1.5 cursor-pointer transition font-medium"
+              title={isPaused ? "Resume speech" : "Pause speech"}
+            >
+              {isPaused ? (
+                <>
+                  <Play size={12} className="fill-current text-amber-400" />
+                  <span className="hidden sm:inline">Resume</span>
+                </>
+              ) : (
+                <>
+                  <Pause size={12} className="fill-current text-amber-400" />
+                  <span className="hidden sm:inline">Pause</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={stopSpeech}
+              className="px-3.5 py-1.5 rounded-xl bg-red-500/25 hover:bg-red-500/40 border border-red-400 text-red-200 hover:text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:scale-105 active:scale-95"
+              title="Stop reading aloud"
+            >
+              <Square size={12} className="fill-current text-red-400" />
+              <span>Stop Read Aloud</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Input Form Bar with Microphone & Voice Typing */}
       <form
         onSubmit={handleSubmit}
@@ -1453,6 +1537,19 @@ export default function ChatPanel({ document }) {
           )}
         </button>
 
+
+        {/* Quick Stop Button right in form bar if reading aloud */}
+        {speakingIndex !== null && (
+          <button
+            type="button"
+            onClick={stopSpeech}
+            className="h-11 px-3 sm:px-3.5 rounded-xl bg-red-500/25 hover:bg-red-500/35 border border-red-400 text-red-200 hover:text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-[0_0_15px_rgba(239,68,68,0.3)] shrink-0"
+            title="Stop reading aloud"
+          >
+            <Square size={13} className="fill-current text-red-400" />
+            <span className="hidden sm:inline">Stop Speech</span>
+          </button>
+        )}
 
         {/* Send Command Button */}
         <button
