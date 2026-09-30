@@ -13,6 +13,11 @@ uploads/*
 !uploads/.gitkeep
 generated/*
 !generated/.gitkeep
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
+!data/.gitkeep
 
 # Environment variables & secrets
 .env
