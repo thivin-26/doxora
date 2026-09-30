@@ -17,7 +17,7 @@ export default function DocumentSidebar({
   };
 
   return (
-    <aside className="w-full md:w-80 shrink-0 border-r border-amber-400/20 bg-ink-950/60 backdrop-blur-xl flex flex-col h-full z-10">
+    <aside className="flex-1 w-full md:w-80 shrink-0 border-r border-amber-400/20 bg-ink-950/60 backdrop-blur-xl flex flex-col overflow-hidden z-10">
       {/* Upload Zone */}
       <div className="p-4 border-b border-amber-400/20">
         <input

@@ -164,12 +164,12 @@ export default function Dashboard() {
 
       {/* ── Main Workspace ─────────────────────────────────────────────── */}
       {/* Desktop: side-by-side | Mobile: single tab visible at a time    */}
-      <div className="flex-1 flex min-h-0 z-10">
-        {/* Document Sidebar */}
+      <div className="flex-1 flex min-h-0 overflow-hidden z-10">
+        {/* Document Sidebar — visible on docs tab (mobile) or always (desktop) */}
         <div
           className={`${
             mobileTab === "docs" ? "flex" : "hidden"
-          } md:flex w-full md:w-80 shrink-0`}
+          } md:flex flex-col w-full md:w-80 shrink-0 overflow-hidden`}
         >
           <DocumentSidebar
             documents={documents}
@@ -181,11 +181,11 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Chat Panel */}
+        {/* Chat Panel — visible on chat tab (mobile) or always (desktop) */}
         <div
           className={`${
             mobileTab === "chat" ? "flex" : "hidden"
-          } md:flex flex-1 min-w-0`}
+          } md:flex flex-col flex-1 min-w-0 overflow-hidden`}
         >
           <ChatPanel document={activeDoc} />
         </div>
