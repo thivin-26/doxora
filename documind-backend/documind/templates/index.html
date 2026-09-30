@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DOXORA — AI Document Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800;900&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<!-- Cinematic Background Video Slideshow -->
+<div class="cinematic-bg">
+  <div class="slide active" style="background-image: url('{{ url_for('static', filename='img/hero-bg-1.jpg') }}')"></div>
+  <div class="slide" style="background-image: url('{{ url_for('static', filename='img/hero-bg-2.jpg') }}')"></div>
+  <div class="slide" style="background-image: url('{{ url_for('static', filename='img/hero-bg-3.jpg') }}')"></div>
+  <canvas id="particleCanvas"></canvas>
+  <div class="bg-vignette"></div>
+  <div class="bg-glow"></div>
+</div>
+
+<div class="app-shell">
+
+  <!-- Sidebar: document library -->
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="{{ url_for('static', filename='img/doxora-logo.png') }}" alt="DOXORA Logo" class="brand-logo">
+      <div class="brand-text">
+        <h1>DOXORA</h1>
+        <p>AI Document Studio</p>
+      </div>
+    </div>
+
+    <label class="upload-drop" id="uploadDrop">
+      <input type="file" id="fileInput" accept=".pdf,.docx,.txt,.md" hidden>
+      <span class="upload-icon">＋</span>
+      <span>Upload a document</span>
+      <small>PDF · DOCX · TXT · MD</small>
+    </label>
+
+    <div class="doc-list" id="docList">
+      <p class="doc-list-empty">No documents yet. Upload one to get started.</p>
+    </div>
+
+    <div class="sidebar-footer" id="statusFooter">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">Checking AI connection…</span>
+    </div>
+  </aside>
+
+  <!-- Main workspace -->
+  <main class="workspace">
+
+    <div class="empty-state" id="emptyState">
+      <div class="empty-stamp">DOXORA STUDIO</div>
+      <h2>Open the studio on a document</h2>
+      <p>Upload a file on the left, or select one from your library, to summarize it, ask it questions, pull structured data out of it, or draft something new from it with regal precision.</p>
+    </div>
+
+    <div class="doc-workspace hidden" id="docWorkspace">
+
+      <header class="doc-header">
+        <div>
+          <h2 id="activeDocName">—</h2>
+          <p class="doc-meta" id="activeDocMeta">—</p>
+        </div>
+        <button class="btn-ghost" id="closeDocBtn">Close</button>
+      </header>
+
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-tab="summarize">Summarize</button>
+        <button class="tab" data-tab="chat">Chat</button>
+        <button class="tab" data-tab="extract">Extract Data</button>
+        <button class="tab" data-tab="generate">Generate</button>
+      </nav>
+
+      <!-- Summarize panel -->
+      <section class="panel active" data-panel="summarize">
+        <div class="panel-controls">
+          <label for="summaryStyle">Style</label>
+          <select id="summaryStyle">
+            <option value="concise">Concise (3–5 sentences)</option>
+            <option value="detailed">Detailed</option>
+            <option value="bullets">Bulleted key points</option>
+            <option value="executive">Executive summary</option>
+          </select>
+          <button class="btn-primary" id="runSummarize">Summarize</button>
+        </div>
+        <div class="result-stamp" id="summarizeStamp" style="display:none;">SUMMARIZED</div>
+        <div class="result-box" id="summaryResult">
+          <p class="placeholder">Your summary will appear here.</p>
+        </div>
+      </section>
+
+      <!-- Chat panel -->
+      <section class="panel" data-panel="chat">
+        <div class="chat-window" id="chatWindow">
+          <p class="placeholder">Ask anything about this document — "What's the main argument?", "Summarize section 2", "Does this mention a deadline?"</p>
+        </div>
+        <form class="chat-input-row" id="chatForm">
+          <input type="text" id="chatInput" placeholder="Ask a question about this document…" autocomplete="off">
+          <button type="submit" class="btn-primary">Send</button>
+        </form>
+      </section>
+
+      <!-- Extract panel -->
+      <section class="panel" data-panel="extract">
+        <div class="panel-controls">
+          <input type="text" id="fieldsHint" placeholder="Optional: fields to focus on (e.g. invoice number, total, due date)">
+          <select id="extractFormat">
+            <option value="json">JSON</option>
+            <option value="csv">CSV</option>
+          </select>
+          <button class="btn-primary" id="runExtract">Extract</button>
+        </div>
+        <div class="result-stamp" id="extractStamp" style="display:none;">EXTRACTED</div>
+        <div class="result-box" id="extractResult">
+          <p class="placeholder">Structured data pulled from the document will appear here, with a download link.</p>
+        </div>
+      </section>
+
+      <!-- Generate panel -->
+      <section class="panel" data-panel="generate">
+        <div class="panel-controls stacked">
+          <textarea id="generatePrompt" rows="3" placeholder="Describe what to write, e.g. 'Turn this into a one-page executive memo' or 'Draft a follow-up letter based on this report'"></textarea>
+          <div class="row">
+            <select id="docType">
+              <option value="general">General document</option>
+              <option value="report">Report</option>
+              <option value="memo">Memo</option>
+              <option value="letter">Letter</option>
+              <option value="proposal">Proposal</option>
+            </select>
+            <select id="outputFormat">
+              <option value="docx">Word (.docx)</option>
+              <option value="pdf">PDF</option>
+              <option value="txt">Plain text</option>
+            </select>
+            <label class="checkbox-row">
+              <input type="checkbox" id="useAsSource" checked>
+              Use current document as source
+            </label>
+            <button class="btn-primary" id="runGenerate">Generate</button>
+          </div>
+        </div>
+        <div class="result-stamp" id="generateStamp" style="display:none;">DRAFTED</div>
+        <div class="result-box" id="generateResult">
+          <p class="placeholder">Generated content preview and a download link will appear here.</p>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- Standalone "generate without a document" launcher -->
+<button class="fab" id="generateFab" title="Generate a new document from scratch">✎</button>
+
+<script>
+  // Slideshow rotator & particle engine for backend template
+  document.addEventListener('DOMContentLoaded', () => {
+    const slides = document.querySelectorAll('.cinematic-bg .slide');
+    let cur = 0;
+    if (slides.length > 1) {
+      setInterval(() => {
+        slides[cur].classList.remove('active');
+        cur = (cur + 1) % slides.length;
+        slides[cur].classList.add('active');
+      }, 6500);
+    }
+
+    const canvas = document.getElementById('particleCanvas');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      let w = (canvas.width = window.innerWidth);
+      let h = (canvas.height = window.innerHeight);
+      window.addEventListener('resize', () => {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+      });
+      const particles = [];
+      const colors = ['#f7d268', '#e6b83b', '#ffd700', '#ffffff', '#c9971a'];
+      for (let i = 0; i < 90; i++) {
+        particles.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          size: Math.random() * 2.5 + 0.8,
+          speedX: (Math.random() - 0.5) * 0.6,
+          speedY: (Math.random() - 0.5) * 0.6,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          alpha: Math.random() * 0.6 + 0.2,
+        });
+      }
+      function render() {
+        ctx.clearRect(0, 0, w, h);
+        particles.forEach(p => {
+          p.x += p.speedX;
+          p.y += p.speedY;
+          if (p.x < 0) p.x = w;
+          if (p.x > w) p.x = 0;
+          if (p.y < 0) p.y = h;
+          if (p.y > h) p.y = 0;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = p.alpha;
+          ctx.fill();
+        });
+        requestAnimationFrame(render);
+      }
+      render();
+    }
+  });
+</script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

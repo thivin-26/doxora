@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Production Builds & Temporary Directories
+dist/
+build/
+.pytest_cache/
+uploads/*
+!uploads/.gitkeep
+generated/*
+!generated/.gitkeep
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+.flaskenv
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
