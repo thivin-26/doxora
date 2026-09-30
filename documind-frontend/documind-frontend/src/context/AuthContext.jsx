@@ -100,6 +100,7 @@ function formatFirebaseError(errCode) {
     case "auth/too-many-requests":
       return "Too many failed attempts. Please try again later or reset your password.";
     // All of these → silently use local fallback
+    case "auth/unauthorized-domain":
     case "auth/network-request-failed":
     case "auth/operation-not-allowed":
     case "auth/configuration-not-found":
